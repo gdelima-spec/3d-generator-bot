@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Generator Bot</title>
+    <style>
+        body {
+            font-family: Arial;
+            text-align: center;
+            background: #0f172a;
+            color: white;
+        }
+
+        input, textarea {
+            width: 80%;
+            margin: 10px;
+            padding: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            background: #22c55e;
+            border: none;
+            color: white;
+        }
+
+        img {
+            width: 200px;
+            margin: 10px;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>🚀 3D Generator Bot</h1>
+
+<input id="prompt" placeholder="Enter idea (car, tool, toy...)" />
+<br>
+<button onclick="generate()">Generate</button>
+
+<h3>Title</h3>
+<textarea id="title"></textarea>
+<button onclick="copy('title')">Copy</button>
+
+<h3>Description</h3>
+<textarea id="desc"></textarea>
+<button onclick="copy('desc')">Copy</button>
+
+<br>
+<a href="/download"><button>Download STL</button></a>
+
+<h3>Images</h3>
+<div id="images"></div>
+
+<script>
+async function generate() {
+    const prompt = document.getElementById("prompt").value;
+
+    const res = await fetch("/generate", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({prompt})
+    });
+
+    const data = await res.json();
+
+    document.getElementById("title").value = data.title;
+    document.getElementById("desc").value = data.description;
+
+    const imgDiv = document.getElementById("images");
+    imgDiv.innerHTML = "";
+
+    data.images.forEach(img => {
+        const image = document.createElement("img");
+        image.src = "data:image/png;base64," + img;
+        imgDiv.appendChild(image);
+    });
+}
+
+function copy(id) {
+    const el = document.getElementById(id);
+    el.select();
+    document.execCommand("copy");
+}
+</script>
+
+</body>
+</html>
