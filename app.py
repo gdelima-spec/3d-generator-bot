@@ -26,21 +26,31 @@ def generate_stl(prompt):
     return path
 
 def generate_text(prompt):
-    response = openai.ChatCompletion.create(
+    response = openai.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": f"Create a catchy viral 3D printable model title and description for: {prompt}"}]
     )
-    text = response["choices"][0]["message"]["content"]
+    text = response.choices[0].message.content
     return "Generated 3D Model", text
 
 def generate_images(prompt):
     images = []
-    img_prompt = f"Realistic 3D printed {prompt}, studio lighting, PLA plastic, product photo"
+    img_prompt = f"Highly realistic product photo of a 3D printed {prompt}, studio lighting, detailed PLA plastic texture, professional product photography"
+
     for _ in range(2):
-        result = openai.Image.create(prompt=img_prompt, n=1, size="512x512")
-        url = result["data"][0]["url"]
-        img_data = requests.get(url).content
-        images.append(base64.b64encode(img_data).decode())
+        try:
+            result = openai.images.generate(
+                model="dall-e-3",
+                prompt=img_prompt,
+                n=1,
+                size="512x512"
+            )
+            url = result.data[0].url
+            img_data = requests.get(url).content
+            images.append(base64.b64encode(img_data).decode('utf-8'))
+        except Exception as e:
+            print("Image error:", str(e))
+            images.append("")  # fallback so it doesn't crash
     return images
 
 @app.route("/generate", methods=["POST"])
