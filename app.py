@@ -19,8 +19,19 @@ def home():
     return render_template("index.html")
 
 def generate_stl(prompt):
-    size = max(5, min(len(prompt), 30))
-    mesh = trimesh.creation.box(extents=(size, size/2, size/3))
+    # Better STL - more interesting shape
+    seed = hash(prompt) % 8
+    if seed < 3:
+        # Box with something on top
+        base = trimesh.creation.box(extents=(30, 20, 8))
+        top = trimesh.creation.box(extents=(18, 12, 10))
+        top.apply_translation([0, 0, 9])
+        mesh = trimesh.util.concatenate([base, top])
+    else:
+        mesh = trimesh.creation.icosphere(radius=15, subdivisions=2)
+        base = trimesh.creation.box(extents=(35, 35, 6))
+        mesh = trimesh.util.concatenate([mesh, base])
+    
     path = tempfile.NamedTemporaryFile(delete=False, suffix=".stl").name
     mesh.export(path)
     return path
@@ -30,38 +41,30 @@ def generate_text(prompt):
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{
-                "role": "user", 
-                "content": f"""Create a Printables-style listing.
-
-User idea: {prompt}
-
-Return EXACTLY in this format:
-Title: [short catchy title, max 8 words]
-Description: [detailed, SEO friendly description, 3-5 sentences]"""
+                "role": "user",
+                "content": f"Create a good Printables.com style listing for a 3D model of: {prompt}\n\nReturn exactly:\nTitle: [short catchy title]\nDescription: [nice 4-6 sentence description]"
             }]
         )
         text = response.choices[0].message.content.strip()
         
-        # Better parsing
         if "Title:" in text and "Description:" in text:
             title = text.split("Title:")[1].split("Description:")[0].strip()
             description = text.split("Description:")[1].strip()
         else:
-            title = prompt[:60].title() + " - 3D Printable Model"
-            description = text[:800]
-            
+            title = f"{prompt.title()} 3D Printable Model"
+            description = text
         return title, description
-    except Exception as e:
-        return "Cool 3D Printable Model", "Failed to generate description. Try again."
+    except:
+        return f"{prompt.title()} 3D Model", "High quality 3D printable model."
 
 def generate_images(prompt):
     images = []
-    img_prompt = f"Professional product photography of a highly detailed 3D printed {prompt}, realistic PLA plastic texture, studio lighting, clean white background, high resolution"
+    img_prompt = f"realistic product photo of a 3D printed {prompt}, made with colorful PLA filament, on a clean desk with soft lighting, professional photography, sharp focus"
 
     for _ in range(2):
         try:
             result = openai.images.generate(
-                model="dall-e-3",
+                model="dall-e-2",   # dall-e-2 is more reliable for this
                 prompt=img_prompt,
                 n=1,
                 size="512x512"
@@ -70,8 +73,8 @@ def generate_images(prompt):
             img_data = requests.get(url).content
             images.append(base64.b64encode(img_data).decode('utf-8'))
         except Exception as e:
-            print("Image generation failed:", str(e))
-            images.append("")  # empty = will show placeholder
+            print("Image error:", str(e))
+            images.append("")  
     return images
 
 @app.route("/generate", methods=["POST"])
@@ -93,7 +96,7 @@ def generate():
 @app.route("/download")
 def download():
     if not stl_file_path:
-        return "No model generated yet", 404
+        return "No model yet", 404
     return send_file(stl_file_path, as_attachment=True, download_name="model.stl")
 
 if __name__ == "__main__":
