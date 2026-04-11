@@ -26,16 +26,37 @@ def generate_stl(prompt):
     return path
 
 def generate_text(prompt):
-    response = openai.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": f"Create a catchy viral 3D printable model title and description for: {prompt}"}]
-    )
-    text = response.choices[0].message.content
-    return "Generated 3D Model", text
+    try:
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{
+                "role": "user", 
+                "content": f"""Create a Printables-style listing.
+
+User idea: {prompt}
+
+Return EXACTLY in this format:
+Title: [short catchy title, max 8 words]
+Description: [detailed, SEO friendly description, 3-5 sentences]"""
+            }]
+        )
+        text = response.choices[0].message.content.strip()
+        
+        # Better parsing
+        if "Title:" in text and "Description:" in text:
+            title = text.split("Title:")[1].split("Description:")[0].strip()
+            description = text.split("Description:")[1].strip()
+        else:
+            title = prompt[:60].title() + " - 3D Printable Model"
+            description = text[:800]
+            
+        return title, description
+    except Exception as e:
+        return "Cool 3D Printable Model", "Failed to generate description. Try again."
 
 def generate_images(prompt):
     images = []
-    img_prompt = f"Highly realistic product photo of a 3D printed {prompt}, studio lighting, detailed PLA plastic texture, professional product photography"
+    img_prompt = f"Professional product photography of a highly detailed 3D printed {prompt}, realistic PLA plastic texture, studio lighting, clean white background, high resolution"
 
     for _ in range(2):
         try:
@@ -49,8 +70,8 @@ def generate_images(prompt):
             img_data = requests.get(url).content
             images.append(base64.b64encode(img_data).decode('utf-8'))
         except Exception as e:
-            print("Image error:", str(e))
-            images.append("")  # fallback so it doesn't crash
+            print("Image generation failed:", str(e))
+            images.append("")  # empty = will show placeholder
     return images
 
 @app.route("/generate", methods=["POST"])
